@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIKRED-RS</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#16202a;--mute:#5f6b78;--line:#dfe5ea;--brand:#0f766e;--brand2:#0b5d57;--ok:#15803d;--okbg:#dcfce7;--warn:#a16207;--warnbg:#fef9c3;--bad:#b91c1c;--badbg:#fee2e2;--na:#475569;--nabg:#e2e8f0}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
+header{background:var(--brand);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0 8px 0 0}
+header .sp{flex:1}
+nav{display:flex;flex-wrap:wrap;gap:4px}
+nav button{background:transparent;color:#d5f3ef;border:0;padding:8px 12px;border-radius:8px;font-size:15px;cursor:pointer}
+nav button.on,nav button:hover{background:var(--brand2);color:#fff}
+main{max-width:1100px;margin:0 auto;padding:16px}
+h2{margin:4px 0 12px;font-size:22px}
+h3{margin:0 0 8px;font-size:17px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+label{display:block;font-size:14px;color:var(--mute);margin-bottom:8px}
+input,select,textarea{width:100%;padding:10px;margin-top:4px;border:1px solid #c7d0d8;border-radius:8px;font-size:16px;background:#fff;color:var(--ink);font-family:inherit}
+textarea{min-height:70px}
+.btn{background:var(--brand);color:#fff;border:0;padding:10px 16px;border-radius:8px;font-size:15px;cursor:pointer}
+.btn:hover{background:var(--brand2)}
+.btn.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+.btn.sm{padding:6px 10px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:wait}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row.end{justify-content:flex-end}
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.b-ok{background:var(--okbg);color:var(--ok)}
+.b-bad{background:var(--badbg);color:var(--bad)}
+.b-warn{background:var(--warnbg);color:var(--warn)}
+.b-na{background:var(--nabg);color:var(--na)}
+.kpi{text-align:center}
+.kpi .n{font-size:38px;font-weight:700;line-height:1.1}
+.kpi .l{color:var(--mute);font-size:13px}
+.good{color:var(--ok)}.mid{color:var(--warn)}.low{color:var(--bad)}
+.bar{background:#e8edf1;border-radius:99px;height:10px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--brand)}
+.bar i.good{background:#16a34a}.bar i.mid{background:#ca8a04}.bar i.low{background:#dc2626}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase}
+.scroll{overflow-x:auto}
+.mute{color:var(--mute);font-size:13px}
+.std{border-left:4px solid var(--brand);padding-left:10px;margin-bottom:14px}
+.std.bad{border-left-color:var(--bad)}
+.titik{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.titik span.t{min-width:62px;font-size:13px;color:var(--mute)}
+.titik input{max-width:160px;margin:0}
+.radio{display:flex;gap:6px;flex-wrap:wrap}
+.radio label{margin:0;border:1px solid #c7d0d8;border-radius:8px;padding:8px 14px;color:var(--ink);cursor:pointer;display:flex;gap:6px;align-items:center}
+.radio input{width:auto;margin:0}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow:auto;z-index:20}
+.mbox{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:520px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16202a;color:#fff;padding:10px 18px;border-radius:10px;z-index:50;max-width:90%}
+.toast.err{background:var(--bad)}
+.banner{background:var(--warnbg);color:var(--warn);border:1px solid #eab308;padding:10px 12px;border-radius:10px;margin-bottom:12px;font-size:14px}
+.login{max-width:360px;margin:12vh auto;padding:0 16px}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:14px}
+.tabs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.print-only{display:none}
+@media print{header,.noprint,.toast{display:none!important}body{background:#fff}main{padding:0;max-width:none}.card{border:0;padding:0}.print-only{display:block}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<datalist id="dl-kr"></datalist>
+<datalist id="dl-kat"></datalist>
+<script>
+// ====== KONFIGURASI ======
+const API_URL = 'https://script.google.com/macros/s/AKfycbzZIyyx7f0GNe8TktYNtDDuDElBBQCMG4N1F-I563ujh_gY2VrOQVC1JIWcwzpsCLRZKA/exec'; // <-- GANTI dengan URL Web App Apps Script (berakhiran /exec)
+
+// ====== STATE & UTIL ======
+const S = { token: sessionStorage.getItem('sk_token') || '', user: null, m: null, page: 'dashboard' };
+const $ = (s, el) => (el || document).querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const tone = v => v == null ? '' : v >= 85 ? 'good' : v >= 70 ? 'mid' : 'low';
+const pct = v => v == null ? '–' : v + '%';
+
+function toast(msg, err) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' err' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3800);
+}
+
+async function api(action, data) {
+  if (API_URL === 'API_URL') throw new Error('API_URL belum diisi di index.html');
+  let r;
+  try {
+    r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token: S.token }, data || {})) });
+  } catch (e) { throw new Error('Tidak dapat terhubung ke server'); }
+  let j;
+  try { j = await r.json(); } catch (e) { throw new Error('Respons server tidak valid'); }
+  if (!j.ok) {
+    if (j.error === 'SESI_BERAKHIR') { logout(); throw new Error('Sesi berakhir, silakan login ulang'); }
+    throw new Error(j.error || 'Gagal');
+  }
+  return j;
+}
+
+function statusBadge(st) {
+  const map = { 'SESUAI': 'b-ok', 'TIDAK SESUAI': 'b-bad', 'BELUM': 'b-warn', 'NA': 'b-na', 'BERLAKU': 'b-ok', 'SEGERA HABIS': 'b-warn', 'KEDALUWARSA': 'b-bad', 'TIDAK ADA DATA': 'b-na' };
+  return `<span class="badge ${map[st] || 'b-na'}">${esc(st)}</span>`;
+}
+function bar(v) { return `<div class="bar"><i class="${tone(v)}" style="width:${v == null ? 0 : v}%"></i></div>`; }
+
+function applies(s, r) {
+  const list = String(s.KategoriRuang || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  return list.indexOf(String(r.KategoriRuang || '').trim().toLowerCase()) >= 0;
+}
+const hasNum = v => v !== '' && v != null && !isNaN(Number(v));
+function stdText(s) {
+  if (s.Tipe === 'CEK') return 'Ya';
+  const u = s.Satuan ? ' ' + s.Satuan : '';
+  if (hasNum(s.Min) && hasNum(s.Maks)) return Number(s.Min) + '–' + Number(s.Maks) + u;
+  if (hasNum(s.Min)) return '≥ ' + Number(s.Min) + u;
+  if (hasNum(s.Maks)) return '≤ ' + Number(s.Maks) + u;
+  return '-';
+}
+function evalClient(s, raw) {
+  const t = String(raw).replace(',', '.').trim();
+  if (t === '' || isNaN(Number(t))) return null;
+  const n = Number(t);
+  if (hasNum(s.Min) && n < Number(s.Min)) return 'TIDAK SESUAI';
+  if (hasNum(s.Maks) && n > Number(s.Maks)) return 'TIDAK SESUAI';
+  return 'SESUAI';
+}
+function groupBy(arr, fn) { const g = {}; arr.forEach(x => { const k = fn(x); (g[k] = g[k] || []).push(x); }); return g; }
+function busy(btn, on) { if (btn) { btn.disabled = on; } }
+
+// ====== MODAL FORM GENERIK ======
+function openForm(title, fields, vals, onSave) {
+  const el = document.createElement('div');
+  el.className = 'modal';
+  const fh = f => {
+    const v = vals[f.k] == null ? '' : vals[f.k];
+    if (f.t === 'select') return `<label>${esc(f.l)}<select name="${f.k}">${f.o.map(o => `<option ${String(o) === String(v) ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`;
+    if (f.t === 'textarea') return `<label>${esc(f.l)}<textarea name="${f.k}">${esc(v)}</textarea></label>`;
+    return `<label>${esc(f.l)}<input name="${f.k}" type="${f.t || 'text'}" value="${esc(v)}" ${f.list ? `list="${f.list}"` : ''} ${f.ro ? 'readonly' : ''} ${f.ph ? `placeholder="${esc(f.ph)}"` : ''} ${f.step ? `step="${f.step}"` : ''}></label>`;
+  };
+  el.innerHTML = `<form class="mbox"><h3>${esc(title)}</h3>${fields.map(fh).join('')}<div class="row end"><button type="button" class="btn ghost" data-x>Batal</button><button class="btn">Simpan</button></div></form>`;
+  document.body.appendChild(el);
+  $('[data-x]', el).onclick = () => el.remove();
+  $('form', el).onsubmit = async ev => {
+    ev.preventDefault();
+    const o = {};
+    fields.forEach(f => { o[f.k] = $('[name="' + f.k + '"]', el).value; });
+    const b = $('.btn:not(.ghost)', el); busy(b, true);
+    try { await onSave(o); el.remove(); } catch (e) { toast(e.message, true); busy(b, false); }
+  };
+}
+
+// ====== LOGIN / SESI ======
+function viewLogin() {
+  $('#app').innerHTML = `<div class="login"><div class="card"><h2>SIKRED-RS</h2><p class="mute">Sistem Kesiapan Kredensialing BPJS — Sarana, Prasarana &amp; Lingkungan</p>
+  <form id="lf"><label>User ID<input id="lu" autocomplete="username" autocapitalize="none" required></label>
+  <label>PIN<input id="lp" type="password" inputmode="numeric" autocomplete="current-password" required></label>
+  <button class="btn" style="width:100%">Masuk</button></form></div></div>`;
+  $('#lf').onsubmit = async ev => {
+    ev.preventDefault();
+    const b = $('#lf .btn'); busy(b, true);
+    try {
+      const j = await api('login', { userID: $('#lu').value, pin: $('#lp').value });
+      S.token = j.token; S.user = j.user; sessionStorage.setItem('sk_token', j.token);
+      await boot();
+    } catch (e) { toast(e.message, true); busy(b, false); }
+  };
+}
+
+function logout() {
+  S.token = ''; S.user = null; S.m = null;
+  sessionStorage.removeItem('sk_token');
+  viewLogin();
+}
+
+async function boot() {
+  try {
+    const j = await api('master');
+    S.m = j; S.user = j.user;
+    refreshLists();
+    shell();
+    go(S.page);
+  } catch (e) { toast(e.message, true); viewLogin(); }
+}
+
+function refreshLists() {
+  const kr = [...new Set(S.m.ruangan.map(r => r.KategoriRuang).concat(S.m.standar.flatMap(s => String(s.KategoriRuang).split(',').map(x => x.trim()))).filter(Boolean))];
+  $('#dl-kr').innerHTML = kr.map(x => `<option value="${esc(x)}">`).join('');
+  const kat = [...new Set(S.m.standar.map(s => s.Kategori).filter(Boolean))];
+  $('#dl-kat').innerHTML = kat.map(x => `<option value="${esc(x)}">`).join('');
+}
+
+// ====== SHELL ======
+const PAGES = [
+  ['dashboard', 'Dashboard', ['ADMIN', 'ASESOR', 'VIEWER']],
+  ['ukur', 'Pengukuran', ['ADMIN', 'ASESOR']],
+  ['cek', 'Checklist', ['ADMIN', 'ASESOR']],
+  ['temuan', 'Temuan', ['ADMIN', 'ASESOR', 'VIEWER']],
+  ['alat', 'Alat Ukur', ['ADMIN', 'ASESOR', 'VIEWER']],
+  ['laporan', 'Laporan', ['ADMIN', 'ASESOR', 'VIEWER']],
+  ['master', 'Master', ['ADMIN']]
+];
+function shell() {
+  const nav = PAGES.filter(p => p[2].includes(S.user.role)).map(p => `<button data-p="${p[0]}">${p[1]}</button>`).join('');
+  $('#app').innerHTML = `<header><h1>SIKRED-RS</h1><nav>${nav}</nav><span class="sp"></span><span class="mute" style="color:#d5f3ef">${esc(S.user.nama)} · ${esc(S.user.role)}</span><button class="btn sm ghost" id="bpin">Ganti PIN</button><button class="btn sm ghost" id="bout">Keluar</button></header><main id="view"></main>`;
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.p));
+  $('#bout').onclick = logout;
+  $('#bpin').onclick = () => openForm('Ganti PIN', [
+    { k: 'oldPin', l: 'PIN lama', t: 'password' }, { k: 'newPin', l: 'PIN baru (6–12 digit angka)', t: 'password' }
+  ], {}, async o => { await api('changePin', o); toast('PIN berhasil diganti'); });
+}
+
+function view(html) { $('#view').innerHTML = html; }
+async function go(p) {
+  S.page = p;
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.p === p));
+  view('<p class="mute">Memuat…</p>');
+  try { await ({ dashboard: pDash, ukur: pUkur, cek: pCek, temuan: pTemuan, alat: pAlat, laporan: pLaporan, master: pMaster }[p])(); }
+  catch (e) { view(`<div class="banner">${esc(e.message)}</div>`); }
+}
+
+// ====== DASHBOARD ======
+async function pDash() {
+  const d = await api('dashboard');
+  const o = d.overall;
+  const attn = d.alat.filter(a => a.Status !== 'BERLAKU');
+  view(`<h2>Dashboard Kesiapan</h2>
+  <div class="grid g4">
+    <div class="card kpi"><div class="n ${tone(o.skor)}">${pct(o.skor)}</div><div class="l">Skor kesiapan<br>(belum dinilai dihitung belum patuh)</div></div>
+    <div class="card kpi"><div class="n ${tone(o.kepatuhan)}">${pct(o.kepatuhan)}</div><div class="l">Kepatuhan<br>(dari butir yang sudah dinilai)</div></div>
+    <div class="card kpi"><div class="n">${pct(o.cakupan)}</div><div class="l">Cakupan penilaian<br>${o.dinilai} dari ${o.total} butir</div></div>
+    <div class="card kpi"><div class="n ${d.temuan.terbuka ? 'low' : 'good'}">${d.temuan.terbuka}</div><div class="l">Temuan terbuka<br>${d.temuan.tinggi} prioritas tinggi · ${d.temuan.terlambat} terlambat</div></div>
+  </div>
+  ${attn.length ? `<div class="banner">⚠ ${attn.length} alat ukur perlu perhatian kalibrasi: ${attn.map(a => esc(a.Nama) + ' (' + esc(a.Status.toLowerCase()) + ')').join(', ')}. Hasil pengukuran dengan alat kedaluwarsa tidak kuat sebagai bukti.</div>` : ''}
+  <div class="grid g2">
+    <div class="card"><h3>Per kategori</h3>${d.perKategori.map(k => `<div style="margin-bottom:10px"><div class="row"><b>${esc(k.label)}</b><span class="mute">${k.dinilai}/${k.total} dinilai</span><span style="margin-left:auto" class="${tone(k.skor)}"><b>${pct(k.skor)}</b></span></div>${bar(k.skor)}</div>`).join('') || '<p class="mute">Belum ada data.</p>'}</div>
+    <div class="card"><h3>Per ruangan</h3>${d.perRuangan.map(k => `<div style="margin-bottom:10px"><div class="row"><b>${esc(k.label)}</b><span class="mute">${k.dinilai}/${k.total} dinilai</span><span style="margin-left:auto" class="${tone(k.skor)}"><b>${pct(k.skor)}</b></span></div>${bar(k.skor)}</div>`).join('') || '<p class="mute">Belum ada data.</p>'}</div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h3>Tidak sesuai standar</h3>${d.tidakSesuai.length ? `<div class="scroll"><table><tr><th>Ruangan</th><th>Parameter</th><th>Hasil</th></tr>${d.tidakSesuai.map(u => `<tr><td>${esc(u.ruangan)}</td><td>${esc(u.parameter)}<div class="mute">standar ${esc(u.standarText)}</div></td><td>${esc(u.detail) || '-'}</td></tr>`).join('')}</table></div>` : '<p class="mute">Tidak ada.</p>'}</div>
+    <div class="card"><h3>Belum dinilai (15 teratas)</h3>${d.belumDinilai.length ? `<div class="scroll"><table><tr><th>Ruangan</th><th>Parameter</th></tr>${d.belumDinilai.map(u => `<tr><td>${esc(u.ruangan)}</td><td>${esc(u.parameter)}</td></tr>`).join('')}</table></div>` : '<p class="mute">Semua butir sudah dinilai.</p>'}</div>
+  </div>
+  <p class="mute">Warna skor: hijau ≥ 85, kuning 70–84, merah &lt; 70 (hanya tampilan; bukan ketentuan BPJS).</p>`);
+}
+
+// ====== PENGUKURAN ======
+async function pUkur() {
+  const rs = S.m.ruangan.filter(r => r.Aktif !== 'Tidak');
+  const al = S.m.alat.filter(a => a.Aktif !== 'Tidak');
+  view(`<h2>Input Pengukuran Lingkungan</h2>
+  <div class="card grid g2">
+    <label>Ruangan<select id="u_r">${rs.map(r => `<option value="${esc(r.RuanganID)}">${esc(r.Nama)} — ${esc(r.KategoriRuang)}</option>`).join('')}</select></label>
+    <label>Tanggal pengukuran<input type="date" id="u_t" value="${today()}" max="${today()}"></label>
+    <label>Alat ukur<select id="u_a"><option value="">— tidak dicatat —</option>${al.map(a => `<option value="${esc(a.AlatID)}">${esc(a.Nama)} (${esc(a.Status)})</option>`).join('')}</select></label>
+  </div>
+  <div id="u_warn"></div><div id="u_list"></div>`);
+  $('#u_r').onchange = renderUkur;
+  $('#u_a').onchange = () => {
+    const a = al.find(x => x.AlatID === $('#u_a').value);
+    $('#u_warn').innerHTML = a && (a.Status === 'KEDALUWARSA' || a.Status === 'TIDAK ADA DATA') ? `<div class="banner">Kalibrasi alat ini ${a.Status === 'KEDALUWARSA' ? 'sudah kedaluwarsa' : 'belum tercatat'}. Data tetap bisa disimpan, tetapi ditandai.</div>` : '';
+  };
+  await renderUkur();
+}
+
+async function renderUkur() {
+  const r = S.m.ruangan.find(x => x.RuanganID === $('#u_r').value);
+  const stds = S.m.standar.filter(s => s.Aktif !== 'Tidak' && s.Tipe !== 'CEK' && applies(s, r));
+  if (!stds.length) { $('#u_list').innerHTML = `<div class="card mute">Belum ada standar ukur untuk kategori "${esc(r.KategoriRuang)}". Tambahkan di Master → Standar.</div>`; return; }
+  $('#u_list').innerHTML = '<p class="mute">Memuat status terakhir…</p>';
+  let last = {};
+  try { (await api('units', { ruanganID: r.RuanganID })).units.forEach(u => last[u.standarID] = u); } catch (e) { }
+  const groups = groupBy(stds, s => s.Kategori);
+  $('#u_list').innerHTML = Object.keys(groups).map(k => `<div class="card"><h3>${esc(k)}</h3>${groups[k].map(s => {
+    const l = last[s.StandarID];
+    return `<div class="std" data-s="${esc(s.StandarID)}"><div class="row"><b>${esc(s.Parameter)}</b><span class="mute">standar ${esc(stdText(s))}</span>${l ? statusBadge(l.status) : ''}${l && l.tanggal ? `<span class="mute">terakhir ${esc(l.tanggal)}: ${esc(l.detail)}</span>` : ''}${s.Terverifikasi !== 'Ya' ? '<span class="badge b-warn">standar belum diverifikasi</span>' : ''}</div>
+    <div class="tt">${titikRow(1)}</div><button type="button" class="btn sm ghost" data-add>+ titik</button></div>`;
+  }).join('')}</div>`).join('') + `<div class="card"><label>Catatan umum (opsional)<input id="u_c" maxlength="300"></label><button class="btn" id="u_save">Simpan pengukuran</button></div>`;
+  document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
+    const tt = $('.tt', b.parentElement); tt.insertAdjacentHTML('beforeend', titikRow(tt.children.length + 1));
+  });
+  $('#u_list').oninput = ev => {
+    if (!ev.target.matches('.titik input')) return;
+    const s = S.m.standar.find(x => x.StandarID === ev.target.closest('.std').dataset.s);
+    const e = evalClient(s, ev.target.value);
+    ev.target.nextElementSibling.innerHTML = e ? statusBadge(e) : '';
+  };
+  $('#u_save').onclick = async () => {
+    const items = [];
+    document.querySelectorAll('#u_list .std').forEach(div => {
+      div.querySelectorAll('.titik').forEach(t => {
+        const v = $('input', t).value.trim();
+        if (v !== '') items.push({ standarID: div.dataset.s, titik: t.dataset.t, nilai: v, catatan: $('#u_c').value });
+      });
+    });
+    if (!items.length) { toast('Isi minimal satu nilai pengukuran', true); return; }
+    const b = $('#u_save'); busy(b, true);
+    try {
+      const j = await api('pengukuranBatch', { tanggal: $('#u_t').value, ruanganID: r.RuanganID, alatID: $('#u_a').value, items });
+      const bad = j.results.filter(x => x.status === 'TIDAK SESUAI').length;
+      toast(`${j.results.length} data tersimpan` + (bad ? ` — ${bad} tidak sesuai, temuan dibuat otomatis` : ''), !!bad);
+      await renderUkur();
+    } catch (e) { toast(e.message, true); busy(b, false); }
+  };
+}
+function titikRow(n) { return `<div class="titik" data-t="${n}"><span class="t">Titik ${n}</span><input type="number" step="any" inputmode="decimal"><span></span></div>`; }
+
+// ====== CHECKLIST ======
+async function pCek() {
+  const rs = S.m.ruangan.filter(r => r.Aktif !== 'Tidak');
+  view(`<h2>Checklist Sarana &amp; Kepatuhan</h2>
+  <div class="card grid g2">
+    <label>Ruangan / lingkup<select id="c_r">${rs.map(r => `<option value="${esc(r.RuanganID)}">${esc(r.Nama)} — ${esc(r.KategoriRuang)}</option>`).join('')}</select></label>
+    <label>Tanggal penilaian<input type="date" id="c_t" value="${today()}" max="${today()}"></label>
+  </div><div id="c_list"></div>`);
+  $('#c_r').onchange = renderCek;
+  await renderCek();
+}
+async function renderCek() {
+  const r = S.m.ruangan.find(x => x.RuanganID === $('#c_r').value);
+  const stds = S.m.standar.filter(s => s.Aktif !== 'Tidak' && s.Tipe === 'CEK' && applies(s, r));
+  if (!stds.length) { $('#c_list').innerHTML = `<div class="card mute">Belum ada butir checklist untuk kategori "${esc(r.KategoriRuang)}".</div>`; return; }
+  let last = {};
+  try { (await api('units', { ruanganID: r.RuanganID })).units.forEach(u => last[u.standarID] = u); } catch (e) { }
+  const groups = groupBy(stds, s => s.Kategori);
+  $('#c_list').innerHTML = Object.keys(groups).map(k => `<div class="card"><h3>${esc(k)}</h3>${groups[k].map(s => {
+    const l = last[s.StandarID];
+    return `<div class="std" data-s="${esc(s.StandarID)}"><div class="row"><b>${esc(s.Parameter)}</b>${l ? statusBadge(l.status) : ''}${l && l.tanggal ? `<span class="mute">terakhir ${esc(l.tanggal)}</span>` : ''}${s.Terverifikasi !== 'Ya' ? '<span class="badge b-warn">butir belum diverifikasi</span>' : ''}</div>
+    <div class="radio" style="margin:8px 0">${['Ya', 'Tidak', 'NA'].map(v => `<label><input type="radio" name="r_${esc(s.StandarID)}" value="${v}">${v}</label>`).join('')}</div>
+    <input placeholder="Catatan / bukti (wajib jika Tidak)" maxlength="300" data-note></div>`;
+  }).join('')}</div>`).join('') + `<div class="card"><button class="btn" id="c_save">Simpan checklist</button> <span class="mute">Butir yang tidak dipilih tidak disimpan.</span></div>`;
+  $('#c_save').onclick = async () => {
+    const items = [];
+    for (const div of document.querySelectorAll('#c_list .std')) {
+      const ch = $('input[type=radio]:checked', div);
+      if (!ch) continue;
+      const note = $('[data-note]', div).value.trim();
+      if (ch.value === 'Tidak' && !note) { toast('Isi catatan untuk butir yang dijawab Tidak', true); return; }
+      items.push({ standarID: div.dataset.s, hasil: ch.value, catatan: note });
+    }
+    if (!items.length) { toast('Pilih minimal satu jawaban', true); return; }
+    const b = $('#c_save'); busy(b, true);
+    try {
+      const j = await api('checklistBatch', { tanggal: $('#c_t').value, ruanganID: r.RuanganID, items });
+      toast(`${j.tersimpan} butir tersimpan` + (j.temuanBaru ? ` — ${j.temuanBaru} temuan baru` : ''));
+      await renderCek();
+    } catch (e) { toast(e.message, true); busy(b, false); }
+  };
+}
+
+// ====== TEMUAN ======
+let temuanFilter = 'AKTIF';
+async function pTemuan() {
+  const j = await api('listTemuan', { status: temuanFilter === 'SEMUA' ? '' : temuanFilter });
+  const can = S.user.role !== 'VIEWER';
+  const t0 = today();
+  view(`<h2>Temuan &amp; Tindak Lanjut</h2>
+  <div class="row noprint" style="margin-bottom:10px"><div class="tabs" style="margin:0">${[['AKTIF', 'Aktif'], ['Selesai', 'Selesai'], ['SEMUA', 'Semua']].map(f => `<button data-f="${f[0]}" class="${temuanFilter === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</div>${can ? '<button class="btn sm" id="t_add" style="margin-left:auto">+ Temuan manual</button>' : ''}</div>
+  ${j.rows.length ? j.rows.map(t => `<div class="card"><div class="row"><span class="badge ${t.Prioritas === 'Tinggi' ? 'b-bad' : t.Prioritas === 'Sedang' ? 'b-warn' : 'b-na'}">${esc(t.Prioritas)}</span><span class="badge b-na">${esc(t.Status)}</span><b>${esc(t.NamaRuangan || 'Umum')}</b>${t.TargetSelesai && t.TargetSelesai < t0 && t.Status !== 'Selesai' && t.Status !== 'Dibatalkan' ? '<span class="badge b-bad">terlambat</span>' : ''}${can ? `<button class="btn sm ghost" style="margin-left:auto" data-e="${esc(t.TemuanID)}">Ubah</button>` : ''}</div>
+  <p style="margin:8px 0">${esc(t.Deskripsi)}</p><div class="mute">PIC: ${esc(t.PIC) || '-'} · Target: ${esc(t.TargetSelesai) || '-'} · Dibuat: ${esc(t.Tanggal)} (${esc(t.Sumber)})${t.TglSelesai ? ' · Selesai: ' + esc(t.TglSelesai) : ''}</div>${t.TindakLanjut ? `<div style="margin-top:6px"><b>Tindak lanjut:</b> ${esc(t.TindakLanjut)}</div>` : ''}</div>`).join('') : '<div class="card mute">Tidak ada temuan.</div>'}`);
+  document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { temuanFilter = b.dataset.f; go('temuan'); });
+  document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => {
+    const t = j.rows.find(x => x.TemuanID === b.dataset.e);
+    openForm('Ubah temuan', [
+      { k: 'Status', l: 'Status', t: 'select', o: ['Terbuka', 'Dalam Proses', 'Selesai', 'Dibatalkan'] },
+      { k: 'Prioritas', l: 'Prioritas', t: 'select', o: ['Tinggi', 'Sedang', 'Rendah'] },
+      { k: 'PIC', l: 'PIC' }, { k: 'TargetSelesai', l: 'Target selesai', t: 'date' },
+      { k: 'TindakLanjut', l: 'Tindak lanjut / bukti perbaikan', t: 'textarea' }
+    ], t, async o => { o.TemuanID = t.TemuanID; await api('saveTemuan', { temuan: o }); toast('Temuan diperbarui'); go('temuan'); });
+  });
+  const add = $('#t_add');
+  if (add) add.onclick = () => openForm('Temuan manual', [
+    { k: 'RuanganID', l: 'Ruangan', t: 'select', o: S.m.ruangan.filter(r => r.Aktif !== 'Tidak').map(r => r.RuanganID) },
+    { k: 'Deskripsi', l: 'Deskripsi temuan', t: 'textarea' },
+    { k: 'Prioritas', l: 'Prioritas', t: 'select', o: ['Sedang', 'Tinggi', 'Rendah'] },
+    { k: 'PIC', l: 'PIC' }, { k: 'TargetSelesai', l: 'Target selesai', t: 'date' }
+  ], { TargetSelesai: '' }, async o => { if (!o.TargetSelesai) delete o.TargetSelesai; await api('saveTemuan', { temuan: o }); toast('Temuan dibuat'); go('temuan'); });
+}
+
+// ====== ALAT ======
+async function pAlat() {
+  const can = S.user.role !== 'VIEWER';
+  const rows = S.m.alat;
+  view(`<h2>Alat Ukur &amp; Kalibrasi</h2>
+  ${can ? '<div class="row end noprint" style="margin-bottom:10px"><button class="btn sm" id="a_add">+ Alat</button></div>' : ''}
+  <div class="card scroll"><table><tr><th>Alat</th><th>Jenis</th><th>Serial</th><th>Kalibrasi</th><th>Berlaku s.d.</th><th>Status</th><th></th></tr>
+  ${rows.map(a => `<tr><td><b>${esc(a.Nama)}</b><div class="mute">${esc(a.Merk)}</div></td><td>${esc(a.Jenis)}</td><td>${esc(a.Serial)}</td><td>${esc(a.TglKalibrasi) || '-'}<div class="mute">${esc(a.Lembaga)}</div></td><td>${esc(a.BerlakuSd) || '-'}</td><td>${statusBadge(a.Status)}${a.Aktif === 'Tidak' ? ' <span class="badge b-na">nonaktif</span>' : ''}</td><td>${can ? `<button class="btn sm ghost" data-e="${esc(a.AlatID)}">Ubah</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="mute">Belum ada alat. Catat lux meter, termohigrometer, dan sound level meter beserta masa berlaku kalibrasinya.</td></tr>'}</table></div>`);
+  const fields = [
+    { k: 'Nama', l: 'Nama alat' }, { k: 'Jenis', l: 'Jenis', t: 'select', o: ['Lux meter', 'Termohigrometer', 'Sound level meter', 'Lainnya'] },
+    { k: 'Merk', l: 'Merk / tipe' }, { k: 'Serial', l: 'No. seri' },
+    { k: 'TglKalibrasi', l: 'Tanggal kalibrasi', t: 'date' }, { k: 'BerlakuSd', l: 'Berlaku sampai', t: 'date' },
+    { k: 'Lembaga', l: 'Lembaga kalibrasi' }, { k: 'SertifikatURL', l: 'Link sertifikat (Drive)' },
+    { k: 'Aktif', l: 'Aktif', t: 'select', o: ['Ya', 'Tidak'] }
+  ];
+  const save = async o => { await api('saveAlat', { alat: o }); const j = await api('master'); S.m = j; toast('Alat tersimpan'); go('alat'); };
+  const add = $('#a_add'); if (add) add.onclick = () => openForm('Tambah alat', fields, { Jenis: 'Lux meter', Aktif: 'Ya' }, save);
+  document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => {
+    const a = rows.find(x => x.AlatID === b.dataset.e);
+    openForm('Ubah alat', fields, a, o => { o.AlatID = a.AlatID; return save(o); });
+  });
+}
+
+// ====== LAPORAN ======
+async function pLaporan() {
+  const [u, t] = await Promise.all([api('units'), api('listTemuan', { status: 'AKTIF' })]);
+  const units = u.units;
+  const sum = (list) => { let n = 0, ok = 0, din = 0; list.forEach(x => { if (x.status === 'NA') return; n++; if (x.status !== 'BELUM') din++; if (x.status === 'SESUAI') ok++; }); return { n, ok, din }; };
+  const tot = sum(units);
+  const byR = groupBy(units, x => x.ruangan);
+  const nama = S.m.config.NAMA_RS || 'RSU Allam Medica';
+  view(`<div class="row noprint" style="margin-bottom:10px"><h2 style="margin:0">Laporan Kesiapan Kredensialing</h2><button class="btn sm" style="margin-left:auto" onclick="window.print()">Cetak / Simpan PDF</button></div>
+  <div class="card"><h3>${esc(nama)} — Laporan Kesiapan Sarana, Prasarana &amp; Lingkungan</h3>
+  <p class="mute">Dicetak: ${today()} · Dinilai: ${tot.din} dari ${tot.n} butir · Sesuai: ${tot.ok} · Data lebih lama dari ${esc(S.m.config.MASA_BERLAKU_HARI || 365)} hari dianggap belum dinilai.</p></div>
+  ${Object.keys(byR).map(k => `<div class="card"><h3>${esc(k)}</h3><div class="scroll"><table><tr><th>Kategori</th><th>Parameter</th><th>Standar</th><th>Hasil</th><th>Tanggal</th><th>Status</th></tr>
+  ${byR[k].map(x => `<tr><td>${esc(x.kategori)}</td><td>${esc(x.parameter)}</td><td>${esc(x.standarText)}</td><td>${esc(x.detail) || '-'}</td><td>${esc(x.tanggal) || '-'}</td><td>${statusBadge(x.status)}</td></tr>`).join('')}</table></div></div>`).join('')}
+  <div class="card"><h3>Temuan aktif</h3>${t.rows.length ? `<div class="scroll"><table><tr><th>Ruangan</th><th>Temuan</th><th>Prioritas</th><th>PIC</th><th>Target</th><th>Status</th></tr>${t.rows.map(x => `<tr><td>${esc(x.NamaRuangan)}</td><td>${esc(x.Deskripsi)}</td><td>${esc(x.Prioritas)}</td><td>${esc(x.PIC)}</td><td>${esc(x.TargetSelesai)}</td><td>${esc(x.Status)}</td></tr>`).join('')}</table></div>` : '<p class="mute">Tidak ada temuan aktif.</p>'}</div>
+  <div class="card"><h3>Alat ukur &amp; kalibrasi</h3><div class="scroll"><table><tr><th>Alat</th><th>Serial</th><th>Berlaku s.d.</th><th>Status</th></tr>${S.m.alat.map(a => `<tr><td>${esc(a.Nama)}</td><td>${esc(a.Serial)}</td><td>${esc(a.BerlakuSd) || '-'}</td><td>${statusBadge(a.Status)}</td></tr>`).join('') || '<tr><td colspan="4" class="mute">Belum ada alat tercatat.</td></tr>'}</table></div></div>`);
+}
+
+// ====== MASTER (ADMIN) ======
+let masterTab = 'ruangan';
+async function pMaster() {
+  const j = await api('master'); S.m = j; refreshLists();
+  const tabs = [['ruangan', 'Ruangan'], ['standar', 'Standar'], ['users', 'Pengguna'], ['config', 'Pengaturan']];
+  view(`<h2>Master Data</h2><div class="tabs">${tabs.map(t => `<button data-t="${t[0]}" class="${masterTab === t[0] ? 'on' : ''}">${t[1]}</button>`).join('')}</div><div id="mbody"></div>`);
+  document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { masterTab = b.dataset.t; pMaster(); });
+  await ({ ruangan: mRuangan, standar: mStandar, users: mUsers, config: mConfig }[masterTab])();
+}
+
+function mRuangan() {
+  const rows = S.m.ruangan;
+  $('#mbody').innerHTML = `<div class="row end" style="margin-bottom:10px"><button class="btn sm" id="m_add">+ Ruangan</button></div><div class="card scroll"><table><tr><th>Nama</th><th>Unit</th><th>Lantai</th><th>Kategori ruang</th><th>PIC</th><th></th></tr>${rows.map(r => `<tr><td><b>${esc(r.Nama)}</b>${r.Aktif === 'Tidak' ? ' <span class="badge b-na">nonaktif</span>' : ''}</td><td>${esc(r.Unit)}</td><td>${esc(r.Lantai)}</td><td>${esc(r.KategoriRuang)}</td><td>${esc(r.PIC)}</td><td><button class="btn sm ghost" data-e="${esc(r.RuanganID)}">Ubah</button></td></tr>`).join('')}</table></div>
+  <p class="mute">Kategori ruang menentukan standar mana yang berlaku. Kategori "RS" dipakai untuk butir tingkat rumah sakit (izin, SDM, sistem digital, dan sebagainya).</p>`;
+  const f = [{ k: 'Nama', l: 'Nama ruangan' }, { k: 'Unit', l: 'Unit' }, { k: 'Lantai', l: 'Lantai' }, { k: 'KategoriRuang', l: 'Kategori ruang', list: 'dl-kr' }, { k: 'PIC', l: 'PIC (penanggung jawab)' }, { k: 'Aktif', l: 'Aktif', t: 'select', o: ['Ya', 'Tidak'] }];
+  const save = async o => { await api('saveRuangan', { ruangan: o }); toast('Tersimpan'); pMaster(); };
+  $('#m_add').onclick = () => openForm('Tambah ruangan', f, { Aktif: 'Ya' }, save);
+  document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const r = rows.find(x => x.RuanganID === b.dataset.e); openForm('Ubah ruangan', f, r, o => { o.RuanganID = r.RuanganID; return save(o); }); });
+}
+
+function mStandar() {
+  const rows = S.m.standar;
+  const unv = rows.filter(s => s.Terverifikasi !== 'Ya').length;
+  $('#mbody').innerHTML = `${unv ? `<div class="banner">${unv} dari ${rows.length} standar bawaan masih berstatus <b>Belum terverifikasi</b>. Cocokkan nilai dengan regulasi terbaru dan instrumen kredensialing dari BPJS KC, lalu ubah statusnya menjadi Ya.</div>` : ''}
+  <div class="row end" style="margin-bottom:10px"><button class="btn sm" id="m_add">+ Standar</button></div>
+  <div class="card scroll"><table><tr><th>Kategori</th><th>Parameter</th><th>Tipe</th><th>Standar</th><th>Berlaku untuk</th><th>Bobot</th><th>Verifikasi</th><th></th></tr>${rows.map(s => `<tr><td>${esc(s.Kategori)}</td><td>${esc(s.Parameter)}${s.Aktif === 'Tidak' ? ' <span class="badge b-na">nonaktif</span>' : ''}<div class="mute">${esc(s.Acuan)}</div></td><td>${esc(s.Tipe)}</td><td>${esc(stdText(s))}</td><td>${esc(s.KategoriRuang)}</td><td>${esc(s.Bobot)}</td><td>${s.Terverifikasi === 'Ya' ? '<span class="badge b-ok">Ya</span>' : '<span class="badge b-warn">Belum</span>'}</td><td><button class="btn sm ghost" data-e="${esc(s.StandarID)}">Ubah</button></td></tr>`).join('')}</table></div>
+  <p class="mute">Tipe: RANGE (min–maks), MIN (batas bawah), MAX (batas atas), CEK (Ya/Tidak). Bobot 1–5 menentukan skor dan prioritas temuan otomatis (≥3 Tinggi, 2 Sedang, 1 Rendah).</p>`;
+  const f = [
+    { k: 'Kategori', l: 'Kategori', list: 'dl-kat' }, { k: 'Parameter', l: 'Parameter / butir' },
+    { k: 'Tipe', l: 'Tipe', t: 'select', o: ['RANGE', 'MIN', 'MAX', 'CEK'] }, { k: 'Satuan', l: 'Satuan (lux, °C, %, dBA)' },
+    { k: 'Min', l: 'Batas minimum', t: 'number', step: 'any' }, { k: 'Maks', l: 'Batas maksimum', t: 'number', step: 'any' },
+    { k: 'KategoriRuang', l: 'Berlaku untuk kategori ruang (pisahkan koma)', list: 'dl-kr' },
+    { k: 'Bobot', l: 'Bobot (1–5)', t: 'select', o: ['1', '2', '3', '4', '5'] }, { k: 'Acuan', l: 'Acuan regulasi' },
+    { k: 'Terverifikasi', l: 'Sudah diverifikasi dengan regulasi', t: 'select', o: ['Belum', 'Ya'] }, { k: 'Aktif', l: 'Aktif', t: 'select', o: ['Ya', 'Tidak'] }
+  ];
+  const save = async o => { await api('saveStandar', { standar: o }); toast('Tersimpan'); pMaster(); };
+  $('#m_add').onclick = () => openForm('Tambah standar', f, { Tipe: 'MIN', Bobot: '1', Terverifikasi: 'Belum', Aktif: 'Ya' }, save);
+  document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const s = rows.find(x => x.StandarID === b.dataset.e); openForm('Ubah standar', f, s, o => { o.StandarID = s.StandarID; return save(o); }); });
+}
+
+async function mUsers() {
+  const j = await api('listUsers');
+  $('#mbody').innerHTML = `<div class="row end" style="margin-bottom:10px"><button class="btn sm" id="m_add">+ Pengguna</button></div><div class="card scroll"><table><tr><th>User ID</th><th>Nama</th><th>Role</th><th>Unit</th><th>Status</th><th></th></tr>${j.users.map(u => `<tr><td>${esc(u.UserID)}</td><td>${esc(u.Nama)}</td><td>${esc(u.Role)}</td><td>${esc(u.Unit)}</td><td>${u.Aktif === 'Tidak' ? '<span class="badge b-na">nonaktif</span>' : '<span class="badge b-ok">aktif</span>'}</td><td><button class="btn sm ghost" data-e="${esc(u.UserID)}">Ubah / reset PIN</button></td></tr>`).join('')}</table></div>
+  <p class="mute">ADMIN: semua akses. ASESOR: input pengukuran, checklist, temuan, alat. VIEWER: hanya melihat.</p>`;
+  const f = (isNew) => [
+    { k: 'UserID', l: 'User ID', ro: !isNew }, { k: 'Nama', l: 'Nama' }, { k: 'Role', l: 'Role', t: 'select', o: ['ASESOR', 'ADMIN', 'VIEWER'] }, { k: 'Unit', l: 'Unit' },
+    { k: 'pin', l: isNew ? 'PIN (6–12 digit)' : 'PIN baru (kosongkan jika tidak diubah)', t: 'password' }, { k: 'Aktif', l: 'Aktif', t: 'select', o: ['Ya', 'Tidak'] }
+  ];
+  const save = async o => { await api('saveUser', { user: o }); toast('Tersimpan'); pMaster(); };
+  $('#m_add').onclick = () => openForm('Tambah pengguna', f(true), { Role: 'ASESOR', Aktif: 'Ya' }, save);
+  document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const u = j.users.find(x => x.UserID === b.dataset.e); openForm('Ubah pengguna', f(false), u, save); });
+}
+
+function mConfig() {
+  const c = S.m.config;
+  $('#mbody').innerHTML = `<div class="card"><button class="btn" id="m_cfg">Ubah pengaturan</button><p>Nama RS: <b>${esc(c.NAMA_RS)}</b><br>Masa berlaku data penilaian: <b>${esc(c.MASA_BERLAKU_HARI)} hari</b></p><p class="mute">Data pengukuran/checklist yang lebih lama dari masa berlaku dianggap belum dinilai, sehingga mendorong pengukuran ulang berkala.</p></div>`;
+  $('#m_cfg').onclick = () => openForm('Pengaturan', [{ k: 'NAMA_RS', l: 'Nama RS' }, { k: 'MASA_BERLAKU_HARI', l: 'Masa berlaku data (hari, 30–1095)', t: 'number' }], c, async o => { await api('saveConfig', { config: o }); toast('Tersimpan'); pMaster(); });
+}
+
+// ====== START ======
+(async function () {
+  if (S.token) { await boot(); } else { viewLogin(); }
+})();
+</script>
+</body>
+</html>
