@@ -119,7 +119,9 @@ function bar(v) { return `<div class="bar"><i class="${tone(v)}" style="width:${
 
 function applies(s, r) {
   const list = String(s.KategoriRuang || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
-  return list.indexOf(String(r.KategoriRuang || '').trim().toLowerCase()) >= 0;
+  const rk = String(r.KategoriRuang || '').trim().toLowerCase();
+  if ((list.indexOf('semua') >= 0 || list.indexOf('*') >= 0) && rk !== 'rs') return true;
+  return list.indexOf(rk) >= 0;
 }
 const hasNum = v => v !== '' && v != null && !isNaN(Number(v));
 function stdText(s) {
@@ -548,7 +550,7 @@ function mStandar() {
     { k: 'Kategori', l: 'Kategori', list: 'dl-kat' }, { k: 'Parameter', l: 'Parameter / butir' },
     { k: 'Tipe', l: 'Tipe', t: 'select', o: ['RANGE', 'MIN', 'MAX', 'CEK'] }, { k: 'Satuan', l: 'Satuan (lux, °C, %, dBA)' },
     { k: 'Min', l: 'Batas minimum', t: 'number', step: 'any' }, { k: 'Maks', l: 'Batas maksimum', t: 'number', step: 'any' },
-    { k: 'KategoriRuang', l: 'Berlaku untuk kategori ruang (pisahkan koma)', list: 'dl-kr' },
+    { k: 'KategoriRuang', l: 'Berlaku untuk kategori ruang (pisahkan koma; tulis Semua = semua ruangan/unit selain Seluruh RS)', list: 'dl-kr' },
     { k: 'Bobot', l: 'Bobot (1–5)', t: 'select', o: ['1', '2', '3', '4', '5'] }, { k: 'Acuan', l: 'Acuan regulasi' },
     { k: 'KodeForm', l: 'Kode form BPJS' }, { k: 'Ambang', l: 'Standar jawaban / ambang (teks)' }, { k: 'TglCek', l: 'Tanggal cek', t: 'date' }, { k: 'Deadline', l: 'Penuhi paling lambat', t: 'date' }, { k: 'Area', l: 'Bagian ceklist (A rawat inap, B rawat jalan, C IGD, D umum)', t: 'select', o: ['', 'A', 'B', 'C', 'D'] },
     { k: 'Terverifikasi', l: 'Sudah diverifikasi dengan regulasi', t: 'select', o: ['Belum', 'Ya'] }, { k: 'Aktif', l: 'Aktif', t: 'select', o: ['Ya', 'Tidak'] }
