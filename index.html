@@ -84,6 +84,9 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 const tone = v => v == null ? '' : v >= 85 ? 'good' : v >= 70 ? 'mid' : 'low';
 const pct = v => v == null ? '–' : v + '%';
+const AREA = { A: 'A. Rawat inap', B: 'B. Rawat jalan', C: 'C. IGD', D: 'D. Umum (sarpras, farmasi, SDM, dokumen)' };
+const AREA_BY_KR = { 'ruang rawat inap': 'A', 'unit rawat inap': 'A', 'unit rawat jalan': 'B', 'unit igd': 'C', 'rs': 'D' };
+function areaOf(r) { return AREA_BY_KR[String(r.KategoriRuang || '').trim().toLowerCase()] || ''; }
 
 function toast(msg, err) {
   const t = document.createElement('div');
@@ -234,7 +237,13 @@ async function pDash() {
   const d = await api('dashboard');
   const o = d.overall;
   const attn = d.alat.filter(a => a.Status !== 'BERLAKU');
-  view(`<h2>Dashboard Kesiapan</h2>
+  const vis = S.m.config.VISITASI_TGL;
+  let visHtml = '';
+  if (vis && /^\d{4}-\d\d-\d\d$/.test(vis)) {
+    const n = Math.round((new Date(vis + 'T12:00:00') - new Date(today() + 'T12:00:00')) / 86400000);
+    if (n >= 0) visHtml = `<div class="banner" style="background:#e0f2fe;color:#075985;border-color:#7dd3fc">Visitasi BPJS ${esc(vis)}: ${n === 0 ? 'hari ini' : n + ' hari lagi'}</div>`;
+  }
+  view(`<h2>Dashboard Kesiapan</h2>${visHtml}
   <div class="grid g4">
     <div class="card kpi"><div class="n ${tone(o.skor)}">${pct(o.skor)}</div><div class="l">Skor kesiapan<br>(belum dinilai dihitung belum patuh)</div></div>
     <div class="card kpi"><div class="n ${tone(o.kepatuhan)}">${pct(o.kepatuhan)}</div><div class="l">Kepatuhan<br>(dari butir yang sudah dinilai)</div></div>
@@ -242,6 +251,7 @@ async function pDash() {
     <div class="card kpi"><div class="n ${d.temuan.terbuka ? 'low' : 'good'}">${d.temuan.terbuka}</div><div class="l">Temuan terbuka<br>${d.temuan.tinggi} prioritas tinggi · ${d.temuan.terlambat} terlambat</div></div>
   </div>
   ${attn.length ? `<div class="banner">⚠ ${attn.length} alat ukur perlu perhatian kalibrasi: ${attn.map(a => esc(a.Nama) + ' (' + esc(a.Status.toLowerCase()) + ')').join(', ')}. Hasil pengukuran dengan alat kedaluwarsa tidak kuat sebagai bukti.</div>` : ''}
+  ${d.perArea && d.perArea.length ? `<div class="card"><h3>Per bagian ceklist lapangan</h3>${d.perArea.slice().sort((a, b) => a.key < b.key ? -1 : 1).map(k => `<div style="margin-bottom:10px"><div class="row"><b>${esc(AREA[k.key] || k.key)}</b><span class="mute">${k.dinilai}/${k.total} dinilai</span><span style="margin-left:auto" class="${tone(k.skor)}"><b>${pct(k.skor)}</b></span></div>${bar(k.skor)}</div>`).join('')}</div>` : ''}
   <div class="grid g2">
     <div class="card"><h3>Per kategori</h3>${d.perKategori.map(k => `<div style="margin-bottom:10px"><div class="row"><b>${esc(k.label)}</b><span class="mute">${k.dinilai}/${k.total} dinilai</span><span style="margin-left:auto" class="${tone(k.skor)}"><b>${pct(k.skor)}</b></span></div>${bar(k.skor)}</div>`).join('') || '<p class="mute">Belum ada data.</p>'}</div>
     <div class="card"><h3>Per ruangan</h3>${d.perRuangan.map(k => `<div style="margin-bottom:10px"><div class="row"><b>${esc(k.label)}</b><span class="mute">${k.dinilai}/${k.total} dinilai</span><span style="margin-left:auto" class="${tone(k.skor)}"><b>${pct(k.skor)}</b></span></div>${bar(k.skor)}</div>`).join('') || '<p class="mute">Belum ada data.</p>'}</div>
@@ -316,44 +326,68 @@ function titikRow(n) { return `<div class="titik" data-t="${n}"><span class="t">
 
 // ====== CHECKLIST ======
 async function pCek() {
-  const rs = S.m.ruangan.filter(r => r.Aktif !== 'Tidak');
-  view(`<h2>Checklist Sarana &amp; Kepatuhan</h2>
+  view(`<h2>Checklist Lapangan Kredensialing</h2>
   <div class="card grid g2">
-    <label>Ruangan / lingkup<select id="c_r">${rs.map(r => `<option value="${esc(r.RuanganID)}">${esc(r.Nama)} — ${esc(r.KategoriRuang)}</option>`).join('')}</select></label>
+    <label>Bagian ceklist<select id="c_b"><option value="">Semua bagian</option>${Object.keys(AREA).map(k => `<option value="${k}">${esc(AREA[k])}</option>`).join('')}</select></label>
+    <label>Ruangan / lingkup<select id="c_r"></select></label>
     <label>Tanggal penilaian<input type="date" id="c_t" value="${today()}" max="${today()}"></label>
-  </div><div id="c_list"></div>`);
+    <label>Tampilkan<select id="c_f"><option value="">Semua butir</option><option value="BELUM">Belum dinilai</option><option value="TIDAK SESUAI">Tidak sesuai</option></select></label>
+  </div><div id="c_sum"></div><div id="c_list"></div>`);
+  const fill = () => {
+    const bg = $('#c_b').value;
+    const rs = S.m.ruangan.filter(r => r.Aktif !== 'Tidak' && (!bg || areaOf(r) === bg));
+    $('#c_r').innerHTML = rs.map(r => `<option value="${esc(r.RuanganID)}">${esc(r.Nama)} — ${esc(r.KategoriRuang)}</option>`).join('');
+  };
+  $('#c_b').onchange = () => { fill(); renderCek(); };
   $('#c_r').onchange = renderCek;
+  $('#c_f').onchange = renderCek;
+  fill();
   await renderCek();
 }
 async function renderCek() {
   const r = S.m.ruangan.find(x => x.RuanganID === $('#c_r').value);
+  if (!r) { $('#c_sum').innerHTML = ''; $('#c_list').innerHTML = '<div class="card mute">Belum ada ruangan untuk bagian ini. Tambahkan di Master → Ruangan.</div>'; return; }
   const stds = S.m.standar.filter(s => s.Aktif !== 'Tidak' && s.Tipe === 'CEK' && applies(s, r));
-  if (!stds.length) { $('#c_list').innerHTML = `<div class="card mute">Belum ada butir checklist untuk kategori "${esc(r.KategoriRuang)}".</div>`; return; }
+  if (!stds.length) { $('#c_sum').innerHTML = ''; $('#c_list').innerHTML = `<div class="card mute">Belum ada butir checklist untuk kategori "${esc(r.KategoriRuang)}".</div>`; return; }
   let last = {};
   try { (await api('units', { ruanganID: r.RuanganID })).units.forEach(u => last[u.standarID] = u); } catch (e) { }
-  const groups = groupBy(stds, s => s.Kategori);
+  const filt = $('#c_f').value;
+  const wajibYa = S.m.config.WAJIB_BUKTI_YA === 'Ya';
+  const t0 = today();
+  const sudah = stds.filter(s => last[s.StandarID] && last[s.StandarID].status !== 'BELUM').length;
+  const tdk = stds.filter(s => last[s.StandarID] && last[s.StandarID].status === 'TIDAK SESUAI').length;
+  $('#c_sum').innerHTML = `<div class="card"><div class="row"><b>${esc(r.Nama)}</b><span class="mute">${sudah} dari ${stds.length} butir sudah dinilai · ${tdk} tidak sesuai</span></div>${bar(Math.round(100 * sudah / stds.length))}</div>`;
+  const shown = stds.filter(s => !filt || (last[s.StandarID] ? last[s.StandarID].status : 'BELUM') === filt);
+  if (!shown.length) { $('#c_list').innerHTML = '<div class="card mute">Tidak ada butir pada tampilan ini.</div>'; return; }
+  const groups = groupBy(shown, s => s.Kategori);
   $('#c_list').innerHTML = Object.keys(groups).map(k => `<div class="card"><h3>${esc(k)}</h3>${groups[k].map(s => {
     const l = last[s.StandarID];
-    return `<div class="std" data-s="${esc(s.StandarID)}"><div class="row"><b>${esc(s.Parameter)}</b>${l ? statusBadge(l.status) : ''}${l && l.tanggal ? `<span class="mute">terakhir ${esc(l.tanggal)}</span>` : ''}${s.Terverifikasi !== 'Ya' ? '<span class="badge b-warn">butir belum diverifikasi</span>' : ''}</div>
+    const st = l ? l.status : 'BELUM';
+    let tg = '';
+    if (s.Deadline && st !== 'SESUAI' && st !== 'NA') tg = s.Deadline < t0 ? '<span class="badge b-bad">lewat tenggat</span>' : (s.Deadline === t0 ? '<span class="badge b-warn">tenggat hari ini</span>' : '');
+    return `<div class="std ${st === 'TIDAK SESUAI' ? 'bad' : ''}" data-s="${esc(s.StandarID)}"><div class="row"><b>${s.KodeForm ? '[' + esc(s.KodeForm) + '] ' : ''}${esc(s.Parameter)}</b>${statusBadge(st)}${tg}${s.Terverifikasi !== 'Ya' ? '<span class="badge b-warn">belum diverifikasi</span>' : ''}</div>
+    ${s.Ambang ? `<div class="mute">Standar jawaban: ${esc(s.Ambang)}</div>` : ''}
+    <div class="mute">Cek ${esc(s.TglCek) || '-'} · Penuhi paling lambat ${esc(s.Deadline) || '-'}${l && l.tanggal ? ' · terakhir dinilai ' + esc(l.tanggal) : ''}</div>
     <div class="radio" style="margin:8px 0">${['Ya', 'Tidak', 'NA'].map(v => `<label><input type="radio" name="r_${esc(s.StandarID)}" value="${v}">${v}</label>`).join('')}</div>
-    <input placeholder="Catatan / bukti (wajib jika Tidak)" maxlength="300" data-note></div>`;
-  }).join('')}</div>`).join('') + `<div class="card"><button class="btn" id="c_save">Simpan checklist</button> <span class="mute">Butir yang tidak dipilih tidak disimpan.</span></div>`;
+    <input placeholder="Bukti / catatan (foto, dokumen, hasil ukur, nomor SK)${wajibYa ? ' — wajib untuk Ya dan Tidak' : ' — wajib jika Tidak'}" maxlength="300" data-note></div>`;
+  }).join('')}</div>`).join('') + `<div class="card"><button class="btn" id="c_save">Simpan checklist</button> <span class="mute">Butir yang tidak dipilih tidak disimpan. Jangan langsung mengubah Tidak menjadi Ya: catat kondisi awal, perbaiki, lalu nilai ulang.</span></div>`;
   $('#c_save').onclick = async () => {
     const items = [];
     for (const div of document.querySelectorAll('#c_list .std')) {
       const ch = $('input[type=radio]:checked', div);
       if (!ch) continue;
       const note = $('[data-note]', div).value.trim();
-      if (ch.value === 'Tidak' && !note) { toast('Isi catatan untuk butir yang dijawab Tidak', true); return; }
+      if (ch.value === 'Tidak' && !note) { toast('Isi catatan kondisi untuk butir yang dijawab Tidak', true); return; }
+      if (ch.value === 'Ya' && wajibYa && !note) { toast('Isi bukti untuk butir yang dijawab Ya', true); return; }
       items.push({ standarID: div.dataset.s, hasil: ch.value, catatan: note });
     }
     if (!items.length) { toast('Pilih minimal satu jawaban', true); return; }
-    const b = $('#c_save'); busy(b, true);
+    const bt = $('#c_save'); busy(bt, true);
     try {
       const j = await api('checklistBatch', { tanggal: $('#c_t').value, ruanganID: r.RuanganID, items });
       toast(`${j.tersimpan} butir tersimpan` + (j.temuanBaru ? ` — ${j.temuanBaru} temuan baru` : ''));
       await renderCek();
-    } catch (e) { toast(e.message, true); busy(b, false); }
+    } catch (e) { toast(e.message, true); busy(bt, false); }
   };
 }
 
@@ -371,7 +405,7 @@ async function pTemuan() {
   document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => {
     const t = j.rows.find(x => x.TemuanID === b.dataset.e);
     openForm('Ubah temuan', [
-      { k: 'Status', l: 'Status', t: 'select', o: ['Terbuka', 'Dalam Proses', 'Selesai', 'Dibatalkan'] },
+      { k: 'Status', l: 'Status (Rencana = masuk rencana perbaikan tertulis)', t: 'select', o: ['Terbuka', 'Dalam Proses', 'Rencana', 'Selesai', 'Dibatalkan'] },
       { k: 'Prioritas', l: 'Prioritas', t: 'select', o: ['Tinggi', 'Sedang', 'Rendah'] },
       { k: 'PIC', l: 'PIC' }, { k: 'TargetSelesai', l: 'Target selesai', t: 'date' },
       { k: 'TindakLanjut', l: 'Tindak lanjut / bukti perbaikan', t: 'textarea' }
@@ -421,8 +455,8 @@ async function pLaporan() {
   <div class="card"><h3>${esc(nama)} — Laporan Kesiapan Sarana, Prasarana &amp; Lingkungan</h3>
   <p class="mute">Dicetak: ${today()} · Dinilai: ${tot.din} dari ${tot.n} butir · Sesuai: ${tot.ok} · Data lebih lama dari ${esc(S.m.config.MASA_BERLAKU_HARI || 365)} hari dianggap belum dinilai.</p></div>
   ${Object.keys(byR).map(k => `<div class="card"><h3>${esc(k)}</h3><div class="scroll"><table><tr><th>Kategori</th><th>Parameter</th><th>Standar</th><th>Hasil</th><th>Tanggal</th><th>Status</th></tr>
-  ${byR[k].map(x => `<tr><td>${esc(x.kategori)}</td><td>${esc(x.parameter)}</td><td>${esc(x.standarText)}</td><td>${esc(x.detail) || '-'}</td><td>${esc(x.tanggal) || '-'}</td><td>${statusBadge(x.status)}</td></tr>`).join('')}</table></div></div>`).join('')}
-  <div class="card"><h3>Temuan aktif</h3>${t.rows.length ? `<div class="scroll"><table><tr><th>Ruangan</th><th>Temuan</th><th>Prioritas</th><th>PIC</th><th>Target</th><th>Status</th></tr>${t.rows.map(x => `<tr><td>${esc(x.NamaRuangan)}</td><td>${esc(x.Deskripsi)}</td><td>${esc(x.Prioritas)}</td><td>${esc(x.PIC)}</td><td>${esc(x.TargetSelesai)}</td><td>${esc(x.Status)}</td></tr>`).join('')}</table></div>` : '<p class="mute">Tidak ada temuan aktif.</p>'}</div>
+  ${byR[k].map(x => `<tr><td>${esc(x.kategori)}</td><td>${x.kode ? '[' + esc(x.kode) + '] ' : ''}${esc(x.parameter)}</td><td>${esc(x.ambang && x.tipe === 'CEK' ? x.ambang : x.standarText)}</td><td>${esc(x.detail) || '-'}</td><td>${esc(x.tanggal) || '-'}</td><td>${statusBadge(x.status)}</td></tr>`).join('')}</table></div></div>`).join('')}
+  <div class="card"><h3>Temuan aktif</h3>${t.rows.length ? `<div class="scroll"><table><tr><th>Ruangan</th><th>Temuan</th><th>Prioritas</th><th>PIC</th><th>Tenggat</th><th>Status</th><th>Tindak lanjut / bukti perbaikan</th></tr>${t.rows.map(x => `<tr><td>${esc(x.NamaRuangan)}</td><td>${esc(x.Deskripsi)}</td><td>${esc(x.Prioritas)}</td><td>${esc(x.PIC)}</td><td>${esc(x.TargetSelesai)}</td><td>${esc(x.Status)}</td><td>${esc(x.TindakLanjut)}</td></tr>`).join('')}</table></div>` : '<p class="mute">Tidak ada temuan aktif.</p>'}</div>
   <div class="card"><h3>Alat ukur &amp; kalibrasi</h3><div class="scroll"><table><tr><th>Alat</th><th>Serial</th><th>Berlaku s.d.</th><th>Status</th></tr>${S.m.alat.map(a => `<tr><td>${esc(a.Nama)}</td><td>${esc(a.Serial)}</td><td>${esc(a.BerlakuSd) || '-'}</td><td>${statusBadge(a.Status)}</td></tr>`).join('') || '<tr><td colspan="4" class="mute">Belum ada alat tercatat.</td></tr>'}</table></div></div>`);
 }
 
@@ -438,11 +472,18 @@ async function pMaster() {
 
 function mRuangan() {
   const rows = S.m.ruangan;
-  $('#mbody').innerHTML = `<div class="row end" style="margin-bottom:10px"><button class="btn sm" id="m_add">+ Ruangan</button></div><div class="card scroll"><table><tr><th>Nama</th><th>Unit</th><th>Lantai</th><th>Kategori ruang</th><th>PIC</th><th></th></tr>${rows.map(r => `<tr><td><b>${esc(r.Nama)}</b>${r.Aktif === 'Tidak' ? ' <span class="badge b-na">nonaktif</span>' : ''}</td><td>${esc(r.Unit)}</td><td>${esc(r.Lantai)}</td><td>${esc(r.KategoriRuang)}</td><td>${esc(r.PIC)}</td><td><button class="btn sm ghost" data-e="${esc(r.RuanganID)}">Ubah</button></td></tr>`).join('')}</table></div>
+  $('#mbody').innerHTML = `<div class="row end" style="margin-bottom:10px"><button class="btn sm ghost" id="m_batch">Buat banyak kamar</button><button class="btn sm" id="m_add">+ Ruangan</button></div><div class="card scroll"><table><tr><th>Nama</th><th>Unit</th><th>Lantai</th><th>Kategori ruang</th><th>PIC</th><th></th></tr>${rows.map(r => `<tr><td><b>${esc(r.Nama)}</b>${r.Aktif === 'Tidak' ? ' <span class="badge b-na">nonaktif</span>' : ''}</td><td>${esc(r.Unit)}</td><td>${esc(r.Lantai)}</td><td>${esc(r.KategoriRuang)}</td><td>${esc(r.PIC)}</td><td><button class="btn sm ghost" data-e="${esc(r.RuanganID)}">Ubah</button></td></tr>`).join('')}</table></div>
   <p class="mute">Kategori ruang menentukan standar mana yang berlaku. Kategori "RS" dipakai untuk butir tingkat rumah sakit (izin, SDM, sistem digital, dan sebagainya).</p>`;
   const f = [{ k: 'Nama', l: 'Nama ruangan' }, { k: 'Unit', l: 'Unit' }, { k: 'Lantai', l: 'Lantai' }, { k: 'KategoriRuang', l: 'Kategori ruang', list: 'dl-kr' }, { k: 'PIC', l: 'PIC (penanggung jawab)' }, { k: 'Aktif', l: 'Aktif', t: 'select', o: ['Ya', 'Tidak'] }];
   const save = async o => { await api('saveRuangan', { ruangan: o }); toast('Tersimpan'); pMaster(); };
   $('#m_add').onclick = () => openForm('Tambah ruangan', f, { Aktif: 'Ya' }, save);
+  $('#m_batch').onclick = () => openForm('Buat banyak ruangan sekaligus', [
+    { k: 'prefix', l: 'Awalan nama (hasil: Kamar 1, Kamar 2, …)' }, { k: 'dari', l: 'Dari nomor', t: 'number' }, { k: 'sampai', l: 'Sampai nomor', t: 'number' },
+    { k: 'kategori', l: 'Kategori ruang', list: 'dl-kr' }, { k: 'unit', l: 'Unit' }, { k: 'lantai', l: 'Lantai' }, { k: 'pic', l: 'PIC (opsional)' }
+  ], { prefix: 'Kamar', dari: '1', sampai: '10', kategori: 'Ruang Rawat Inap', unit: 'Rawat Inap' }, async o => {
+    const j = await api('saveRuanganBatch', { batch: o });
+    toast(j.dibuat + ' ruangan dibuat' + (j.dilewati ? ', ' + j.dilewati + ' sudah ada' : '')); pMaster();
+  });
   document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const r = rows.find(x => x.RuanganID === b.dataset.e); openForm('Ubah ruangan', f, r, o => { o.RuanganID = r.RuanganID; return save(o); }); });
 }
 
@@ -450,8 +491,8 @@ function mStandar() {
   const rows = S.m.standar;
   const unv = rows.filter(s => s.Terverifikasi !== 'Ya').length;
   $('#mbody').innerHTML = `${unv ? `<div class="banner">${unv} dari ${rows.length} standar bawaan masih berstatus <b>Belum terverifikasi</b>. Cocokkan nilai dengan regulasi terbaru dan instrumen kredensialing dari BPJS KC, lalu ubah statusnya menjadi Ya.</div>` : ''}
-  <div class="row end" style="margin-bottom:10px"><button class="btn sm" id="m_add">+ Standar</button></div>
-  <div class="card scroll"><table><tr><th>Kategori</th><th>Parameter</th><th>Tipe</th><th>Standar</th><th>Berlaku untuk</th><th>Bobot</th><th>Verifikasi</th><th></th></tr>${rows.map(s => `<tr><td>${esc(s.Kategori)}</td><td>${esc(s.Parameter)}${s.Aktif === 'Tidak' ? ' <span class="badge b-na">nonaktif</span>' : ''}<div class="mute">${esc(s.Acuan)}</div></td><td>${esc(s.Tipe)}</td><td>${esc(stdText(s))}</td><td>${esc(s.KategoriRuang)}</td><td>${esc(s.Bobot)}</td><td>${s.Terverifikasi === 'Ya' ? '<span class="badge b-ok">Ya</span>' : '<span class="badge b-warn">Belum</span>'}</td><td><button class="btn sm ghost" data-e="${esc(s.StandarID)}">Ubah</button></td></tr>`).join('')}</table></div>
+  <div class="row" style="margin-bottom:10px"><input id="m_q" placeholder="Cari kode, kategori, atau parameter" style="max-width:320px;margin:0"><button class="btn sm" id="m_add" style="margin-left:auto">+ Standar</button></div>
+  <div class="card scroll"><table><tr><th>Kode</th><th>Kategori</th><th>Parameter</th><th>Tipe</th><th>Standar</th><th>Berlaku untuk</th><th>Bobot</th><th>Verifikasi</th><th></th></tr>${rows.map(s => `<tr class="srow" data-q="${esc((s.KodeForm + ' ' + s.Kategori + ' ' + s.Parameter + ' ' + s.KategoriRuang).toLowerCase())}"><td>${esc(s.KodeForm)}</td><td>${esc(s.Kategori)}</td><td>${esc(s.Parameter)}${s.Aktif === 'Tidak' ? ' <span class="badge b-na">nonaktif</span>' : ''}<div class="mute">${esc(s.Acuan)}</div></td><td>${esc(s.Tipe)}</td><td>${esc(stdText(s))}</td><td>${esc(s.KategoriRuang)}</td><td>${esc(s.Bobot)}</td><td>${s.Terverifikasi === 'Ya' ? '<span class="badge b-ok">Ya</span>' : '<span class="badge b-warn">Belum</span>'}</td><td><button class="btn sm ghost" data-e="${esc(s.StandarID)}">Ubah</button></td></tr>`).join('')}</table></div>
   <p class="mute">Tipe: RANGE (min–maks), MIN (batas bawah), MAX (batas atas), CEK (Ya/Tidak). Bobot 1–5 menentukan skor dan prioritas temuan otomatis (≥3 Tinggi, 2 Sedang, 1 Rendah).</p>`;
   const f = [
     { k: 'Kategori', l: 'Kategori', list: 'dl-kat' }, { k: 'Parameter', l: 'Parameter / butir' },
@@ -459,9 +500,11 @@ function mStandar() {
     { k: 'Min', l: 'Batas minimum', t: 'number', step: 'any' }, { k: 'Maks', l: 'Batas maksimum', t: 'number', step: 'any' },
     { k: 'KategoriRuang', l: 'Berlaku untuk kategori ruang (pisahkan koma)', list: 'dl-kr' },
     { k: 'Bobot', l: 'Bobot (1–5)', t: 'select', o: ['1', '2', '3', '4', '5'] }, { k: 'Acuan', l: 'Acuan regulasi' },
+    { k: 'KodeForm', l: 'Kode form BPJS' }, { k: 'Ambang', l: 'Standar jawaban / ambang (teks)' }, { k: 'TglCek', l: 'Tanggal cek', t: 'date' }, { k: 'Deadline', l: 'Penuhi paling lambat', t: 'date' }, { k: 'Area', l: 'Bagian ceklist (A rawat inap, B rawat jalan, C IGD, D umum)', t: 'select', o: ['', 'A', 'B', 'C', 'D'] },
     { k: 'Terverifikasi', l: 'Sudah diverifikasi dengan regulasi', t: 'select', o: ['Belum', 'Ya'] }, { k: 'Aktif', l: 'Aktif', t: 'select', o: ['Ya', 'Tidak'] }
   ];
   const save = async o => { await api('saveStandar', { standar: o }); toast('Tersimpan'); pMaster(); };
+  $('#m_q').oninput = ev => { const q = ev.target.value.toLowerCase().trim(); document.querySelectorAll('#mbody tr.srow').forEach(tr => { tr.style.display = !q || tr.dataset.q.indexOf(q) >= 0 ? '' : 'none'; }); };
   $('#m_add').onclick = () => openForm('Tambah standar', f, { Tipe: 'MIN', Bobot: '1', Terverifikasi: 'Belum', Aktif: 'Ya' }, save);
   document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const s = rows.find(x => x.StandarID === b.dataset.e); openForm('Ubah standar', f, s, o => { o.StandarID = s.StandarID; return save(o); }); });
 }
@@ -481,8 +524,8 @@ async function mUsers() {
 
 function mConfig() {
   const c = S.m.config;
-  $('#mbody').innerHTML = `<div class="card"><button class="btn" id="m_cfg">Ubah pengaturan</button><p>Nama RS: <b>${esc(c.NAMA_RS)}</b><br>Masa berlaku data penilaian: <b>${esc(c.MASA_BERLAKU_HARI)} hari</b></p><p class="mute">Data pengukuran/checklist yang lebih lama dari masa berlaku dianggap belum dinilai, sehingga mendorong pengukuran ulang berkala.</p></div>`;
-  $('#m_cfg').onclick = () => openForm('Pengaturan', [{ k: 'NAMA_RS', l: 'Nama RS' }, { k: 'MASA_BERLAKU_HARI', l: 'Masa berlaku data (hari, 30–1095)', t: 'number' }], c, async o => { await api('saveConfig', { config: o }); toast('Tersimpan'); pMaster(); });
+  $('#mbody').innerHTML = `<div class="card"><button class="btn" id="m_cfg">Ubah pengaturan</button><p>Nama RS: <b>${esc(c.NAMA_RS)}</b><br>Masa berlaku data penilaian: <b>${esc(c.MASA_BERLAKU_HARI)} hari</b><br>Tanggal visitasi BPJS: <b>${esc(c.VISITASI_TGL) || '-'}</b><br>Jawaban Ya wajib bukti: <b>${esc(c.WAJIB_BUKTI_YA) || '-'}</b></p><p class="mute">Data pengukuran/checklist yang lebih lama dari masa berlaku dianggap belum dinilai, sehingga mendorong pengukuran ulang berkala.</p></div>`;
+  $('#m_cfg').onclick = () => openForm('Pengaturan', [{ k: 'NAMA_RS', l: 'Nama RS' }, { k: 'MASA_BERLAKU_HARI', l: 'Masa berlaku data (hari, 30–1095)', t: 'number' }, { k: 'VISITASI_TGL', l: 'Tanggal visitasi BPJS', t: 'date' }, { k: 'WAJIB_BUKTI_YA', l: 'Jawaban Ya wajib bukti', t: 'select', o: ['Ya', 'Tidak'] }], c, async o => { await api('saveConfig', { config: o }); toast('Tersimpan'); pMaster(); });
 }
 
 // ====== START ======
