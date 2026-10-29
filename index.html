@@ -115,6 +115,19 @@ function statusBadge(st) {
   const map = { 'SESUAI': 'b-ok', 'TIDAK SESUAI': 'b-bad', 'BELUM': 'b-warn', 'NA': 'b-na', 'BERLAKU': 'b-ok', 'SEGERA HABIS': 'b-warn', 'KEDALUWARSA': 'b-bad', 'TIDAK ADA DATA': 'b-na' };
   return `<span class="badge ${map[st] || 'b-na'}">${esc(st)}</span>`;
 }
+// ====== UNDUH (CSV untuk Excel) ======
+function dlCsv(nama, head, rows) {
+  const cell = v => { let s = String(v == null ? '' : v).replace(/\r?\n/g, ' '); if (/^[=+\-@\t]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+  const txt = 'sep=;\r\n' + [head].concat(rows).map(r => r.map(cell).join(';')).join('\r\n');
+  const blob = new Blob(['\ufeff' + txt], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nama + '_' + today() + '.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast('File ' + a.download + ' diunduh');
+}
+const temuanHead = ['Ruangan', 'Temuan', 'Prioritas', 'Status', 'PIC', 'Tenggat', 'Tanggal dibuat', 'Sumber', 'Tanggal selesai', 'Tindak lanjut / bukti perbaikan'];
+const temuanRow = t => [t.NamaRuangan || 'Umum', t.Deskripsi, t.Prioritas, t.Status, t.PIC, t.TargetSelesai, t.Tanggal, t.Sumber, t.TglSelesai, t.TindakLanjut];
 function bar(v) { return `<div class="bar"><i class="${tone(v)}" style="width:${v == null ? 0 : v}%"></i></div>`; }
 
 function applies(s, r) {
@@ -450,7 +463,8 @@ async function pTemuan() {
   const can = S.user.role !== 'VIEWER';
   const t0 = today();
   view(`<h2>Temuan &amp; Tindak Lanjut</h2>
-  <div class="row noprint" style="margin-bottom:10px"><div class="tabs" style="margin:0">${[['AKTIF', 'Aktif'], ['Selesai', 'Selesai'], ['SEMUA', 'Semua']].map(f => `<button data-f="${f[0]}" class="${temuanFilter === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</div>${can ? '<button class="btn sm" id="t_add" style="margin-left:auto">+ Temuan manual</button>' : ''}</div>
+  <div class="row noprint" style="margin-bottom:10px"><div class="tabs" style="margin:0">${[['AKTIF', 'Aktif'], ['Selesai', 'Selesai'], ['SEMUA', 'Semua']].map(f => `<button data-f="${f[0]}" class="${temuanFilter === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</div><div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm ghost" id="t_csv">Unduh Excel (CSV)</button><button class="btn sm ghost" onclick="window.print()">Cetak / PDF</button>${can ? '<button class="btn sm" id="t_add">+ Temuan manual</button>' : ''}</div></div>
+  <div class="print-only"><b>${esc(S.m.config.NAMA_RS || 'RSU Allam Medica')}</b> — Daftar Temuan (${esc(temuanFilter === 'AKTIF' ? 'aktif' : temuanFilter === 'SEMUA' ? 'semua status' : temuanFilter)}) · Dicetak ${today()} · ${j.rows.length} temuan</div>
   ${j.rows.length ? j.rows.map(t => `<div class="card"><div class="row"><span class="badge ${t.Prioritas === 'Tinggi' ? 'b-bad' : t.Prioritas === 'Sedang' ? 'b-warn' : 'b-na'}">${esc(t.Prioritas)}</span><span class="badge b-na">${esc(t.Status)}</span><b>${esc(t.NamaRuangan || 'Umum')}</b>${t.TargetSelesai && t.TargetSelesai < t0 && t.Status !== 'Selesai' && t.Status !== 'Dibatalkan' ? '<span class="badge b-bad">terlambat</span>' : ''}${can ? `<button class="btn sm ghost" style="margin-left:auto" data-e="${esc(t.TemuanID)}">Ubah</button>` : ''}</div>
   <p style="margin:8px 0">${esc(t.Deskripsi)}</p><div class="mute">PIC: ${esc(t.PIC) || '-'} · Target: ${esc(t.TargetSelesai) || '-'} · Dibuat: ${esc(t.Tanggal)} (${esc(t.Sumber)})${t.TglSelesai ? ' · Selesai: ' + esc(t.TglSelesai) : ''}</div>${t.TindakLanjut ? `<div style="margin-top:6px"><b>Tindak lanjut:</b> ${esc(t.TindakLanjut)}</div>` : ''}</div>`).join('') : '<div class="card mute">Tidak ada temuan.</div>'}`);
   document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { temuanFilter = b.dataset.f; go('temuan'); });
@@ -463,6 +477,7 @@ async function pTemuan() {
       { k: 'TindakLanjut', l: 'Tindak lanjut / bukti perbaikan', t: 'textarea' }
     ], t, async o => { o.TemuanID = t.TemuanID; await api('saveTemuan', { temuan: o }); toast('Temuan diperbarui'); go('temuan'); });
   });
+  $('#t_csv').onclick = () => j.rows.length ? dlCsv('Temuan_' + temuanFilter, temuanHead, j.rows.map(temuanRow)) : toast('Tidak ada temuan untuk diunduh', true);
   const add = $('#t_add');
   if (add) add.onclick = () => openForm('Temuan manual', [
     { k: 'RuanganID', l: 'Ruangan', t: 'select', o: S.m.ruangan.filter(r => r.Aktif !== 'Tidak').map(r => r.RuanganID) },
@@ -503,13 +518,16 @@ async function pLaporan() {
   const tot = sum(units);
   const byR = groupBy(units, x => x.ruangan);
   const nama = S.m.config.NAMA_RS || 'RSU Allam Medica';
-  view(`<div class="row noprint" style="margin-bottom:10px"><h2 style="margin:0">Laporan Kesiapan Kredensialing</h2><button class="btn sm" style="margin-left:auto" onclick="window.print()">Cetak / Simpan PDF</button></div>
+  view(`<div class="row noprint" style="margin-bottom:10px"><h2 style="margin:0">Laporan Kesiapan Kredensialing</h2><div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm ghost" id="l_hasil">Unduh hasil (CSV)</button><button class="btn sm ghost" id="l_temuan">Unduh temuan (CSV)</button><button class="btn sm" onclick="window.print()">Cetak / Simpan PDF</button></div></div>
   <div class="card"><h3>${esc(nama)} — Laporan Kesiapan Sarana, Prasarana &amp; Lingkungan</h3>
   <p class="mute">Dicetak: ${today()} · Dinilai: ${tot.din} dari ${tot.n} butir · Sesuai: ${tot.ok} · Data lebih lama dari ${esc(S.m.config.MASA_BERLAKU_HARI || 365)} hari dianggap belum dinilai.</p></div>
   ${Object.keys(byR).map(k => `<div class="card"><h3>${esc(k)}</h3><div class="scroll"><table><tr><th>Kategori</th><th>Parameter</th><th>Standar</th><th>Hasil</th><th>Tanggal</th><th>Status</th></tr>
   ${byR[k].map(x => `<tr><td>${esc(x.kategori)}</td><td>${x.kode ? '[' + esc(x.kode) + '] ' : ''}${esc(x.parameter)}</td><td>${esc(x.ambang && x.tipe === 'CEK' ? x.ambang : x.standarText)}</td><td>${esc(x.detail) || '-'}</td><td>${esc(x.tanggal) || '-'}</td><td>${statusBadge(x.status)}</td></tr>`).join('')}</table></div></div>`).join('')}
   <div class="card"><h3>Temuan aktif</h3>${t.rows.length ? `<div class="scroll"><table><tr><th>Ruangan</th><th>Temuan</th><th>Prioritas</th><th>PIC</th><th>Tenggat</th><th>Status</th><th>Tindak lanjut / bukti perbaikan</th></tr>${t.rows.map(x => `<tr><td>${esc(x.NamaRuangan)}</td><td>${esc(x.Deskripsi)}</td><td>${esc(x.Prioritas)}</td><td>${esc(x.PIC)}</td><td>${esc(x.TargetSelesai)}</td><td>${esc(x.Status)}</td><td>${esc(x.TindakLanjut)}</td></tr>`).join('')}</table></div>` : '<p class="mute">Tidak ada temuan aktif.</p>'}</div>
   <div class="card"><h3>Alat ukur &amp; kalibrasi</h3><div class="scroll"><table><tr><th>Alat</th><th>Serial</th><th>Berlaku s.d.</th><th>Status</th></tr>${S.m.alat.map(a => `<tr><td>${esc(a.Nama)}</td><td>${esc(a.Serial)}</td><td>${esc(a.BerlakuSd) || '-'}</td><td>${statusBadge(a.Status)}</td></tr>`).join('') || '<tr><td colspan="4" class="mute">Belum ada alat tercatat.</td></tr>'}</table></div></div>`);
+  $('#l_hasil').onclick = () => dlCsv('Laporan_Hasil', ['Ruangan', 'Kategori', 'Kode', 'Parameter', 'Standar', 'Hasil', 'Tanggal', 'Status'],
+    units.map(x => [x.ruangan, x.kategori, x.kode, x.parameter, x.ambang && x.tipe === 'CEK' ? x.ambang : x.standarText, x.detail, x.tanggal, x.status]));
+  $('#l_temuan').onclick = () => t.rows.length ? dlCsv('Laporan_Temuan_Aktif', temuanHead, t.rows.map(temuanRow)) : toast('Tidak ada temuan aktif', true);
 }
 
 // ====== MASTER (ADMIN) ======
