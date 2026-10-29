@@ -91,7 +91,13 @@ const tone = v => v == null ? '' : v >= 85 ? 'good' : v >= 70 ? 'mid' : 'low';
 const pct = v => v == null ? '–' : v + '%';
 const AREA = { A: 'A. Rawat inap', B: 'B. Rawat jalan', C: 'C. IGD', D: 'D. Umum (sarpras, farmasi, SDM, dokumen)' };
 const AREA_BY_KR = { 'ruang rawat inap': 'A', 'unit rawat inap': 'A', 'unit rawat jalan': 'B', 'unit igd': 'C', 'rs': 'D' };
-function areaOf(r) { return AREA_BY_KR[String(r.KategoriRuang || '').trim().toLowerCase()] || ''; }
+function areaOf(r) {
+  const k = String(r.KategoriRuang || '').trim().toLowerCase();
+  if (AREA_BY_KR[k]) return AREA_BY_KR[k];
+  // kategori baru buatan petugas: ikut bagian dari butir yang berlaku untuk kategori itu
+  const s = ((S.m && S.m.standar) || []).find(x => x.Area && String(x.KategoriRuang).split(',').some(c => c.trim().toLowerCase() === k));
+  return s ? s.Area : '';
+}
 
 function toast(msg, err) {
   const t = document.createElement('div');
@@ -459,7 +465,7 @@ async function pCek() {
     <label>Ruangan / lingkup<select id="c_r"></select></label>
     <label>Tanggal penilaian<input type="date" id="c_t" value="${today()}" max="${today()}"></label>
     <label>Tampilkan<select id="c_f"><option value="">Semua butir</option><option value="BELUM">Belum dinilai</option><option value="TIDAK SESUAI">Tidak sesuai</option></select></label>
-  </div><div id="c_sum"></div><div id="c_list"></div>`);
+  </div>${S.user.role !== 'VIEWER' ? `<div class="row noprint" style="margin-bottom:10px"><button class="btn sm ghost" id="c_addb">+ Tambah butir checklist</button>${S.user.role === 'ADMIN' ? '<button class="btn sm ghost" id="c_addr">+ Ruangan baru</button>' : ''}<span class="mute">Untuk ruang atau standar yang belum ada di ceklist.</span></div>` : ''}<div id="c_sum"></div><div id="c_list"></div>`);
   const fill = () => {
     const bg = $('#c_b').value;
     const rs = S.m.ruangan.filter(r => r.Aktif !== 'Tidak' && (!bg || areaOf(r) === bg));
@@ -468,6 +474,39 @@ async function pCek() {
   $('#c_b').onchange = () => { fill(); renderCek(); };
   $('#c_r').onchange = renderCek;
   $('#c_f').onchange = applyCekFilter;
+  const reload = async sel => { const j = await api('master'); S.m = j; refreshLists(); $('#c_b').value = ''; fill(); if (sel) $('#c_r').value = sel; await renderCek(); };
+  const ab = $('#c_addb');
+  if (ab) ab.onclick = () => {
+    const r = S.m.ruangan.find(x => x.RuanganID === $('#c_r').value);
+    if (!r) { toast('Pilih ruangan dulu. Jika ruangnya belum ada, tambahkan lewat Ruangan baru.', true); return; }
+    const labK = 'Ruangan sekategori: ' + r.KategoriRuang, labS = 'Semua ruangan (kecuali Seluruh RS)';
+    openForm('Tambah butir checklist', [
+      { k: 'Kategori', l: 'Kelompok butir (pilih yang ada atau ketik baru)', list: 'dl-kat', ph: 'mis. Ruang dekontaminasi' },
+      { k: 'Parameter', l: 'Butir yang dicek', t: 'textarea' },
+      { k: 'Ambang', l: 'Standar jawaban (opsional)', ph: 'mis. Alur kotor ke bersih terpisah' },
+      { k: 'KodeForm', l: 'Kode form (opsional)', ph: 'mis. D.20' },
+      { k: 'Area', l: 'Bagian ceklist', t: 'select', o: ['A', 'B', 'C', 'D', ''] },
+      { k: 'Berlaku', l: 'Berlaku untuk', t: 'select', o: [labK, labS] },
+      { k: 'Bobot', l: 'Bobot (1 sampai 5)', t: 'select', o: ['1', '2', '3', '4', '5'] },
+      { k: 'Deadline', l: 'Penuhi paling lambat (opsional)', t: 'date' }
+    ], { Area: areaOf(r) || ($('#c_b').value || ''), Berlaku: labK, Bobot: '2', Kategori: '' }, async o => {
+      const scope = o.Berlaku === labS ? 'SEMUA' : 'KATEGORI';
+      await api('addButir', { scope, ruanganID: r.RuanganID, butir: { Kategori: o.Kategori, Parameter: o.Parameter, Ambang: o.Ambang, KodeForm: o.KodeForm, Area: o.Area, Bobot: o.Bobot, Deadline: o.Deadline } });
+      toast('Butir ditambahkan. Silakan dinilai.');
+      delete S.uc[r.RuanganID];
+      await reload(r.RuanganID);
+    });
+  };
+  const ar = $('#c_addr');
+  if (ar) ar.onclick = () => openForm('Ruangan baru', [
+    { k: 'Nama', l: 'Nama ruangan', ph: 'mis. Ruang Dekontaminasi' }, { k: 'Unit', l: 'Unit' }, { k: 'Lantai', l: 'Lantai' },
+    { k: 'KategoriRuang', l: 'Kategori ruang (butir checklist berlaku per kategori)', list: 'dl-kr', ph: 'mis. Ruang Dekontaminasi' }, { k: 'PIC', l: 'PIC (penanggung jawab)' }
+  ], { Aktif: 'Ya' }, async o => {
+    o.Aktif = 'Ya';
+    const j = await api('saveRuangan', { ruangan: o });
+    toast('Ruangan dibuat. Klik "Tambah butir checklist" untuk menambah butirnya.');
+    await reload(j.RuanganID);
+  });
   fill();
   await renderCek();
 }
